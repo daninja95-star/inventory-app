@@ -36,7 +36,7 @@ COPY app.py .
 EXPOSE 8080
 
 # Command to run the application using Gunicorn, referencing the PORT variable.
-CMD ["gunicorn", "--bind", "0.0.0.0:$PORT", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "app:app"]
 
 # Healthcheck to ensure the application is running correctly.
 HEALTHCHECK --interval=30s --timeout=3s \
