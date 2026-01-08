@@ -2,13 +2,12 @@
 
 ### Set up substitutions for dynamic values
 substitutions:
-  _PROJECT_ID: qwiklabs-gcp-01-adcaca246c17
+  _PROJECT_ID: qwiklabs-gcp-01-adcaca246c17 # Enter your project id
   _REGION: us-central1 # Enter your region
   _SERVICE_NAME: inventory-api
   _REPOSITORY: cloud-run-source-deploy
   # Define the full image name once to avoid repetition and errors
-  _IMAGE_NAME: ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}
-
+  _IMAGE_NAME: ${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}
 
 steps:
   ### Step 1: Build the Docker image
@@ -18,8 +17,6 @@ steps:
       - 'build'
       - '-t'
       - '${_IMAGE_NAME}:$COMMIT_SHA'
-      - '--build-arg'
-      - 'GITHUB_TOKEN=$$GITHUB_TOKEN' # Pass the secret to the build
       - '.'
 
   ### Step 2: Push the Docker image to Google Artifact Registry
@@ -42,12 +39,5 @@ steps:
       - '--platform=managed'
       - '--allow-unauthenticated' # Allow unauthenticated access for this lab
 
-### Make the secret available to the build steps
-availableSecrets:
-  secretManager:
-  - versionName: projects/$PROJECT_ID/secrets/github-token/versions/latest
-    env: 'GITHUB_TOKEN'
-
 options: # This section defines global build options
   logging: CLOUD_LOGGING_ONLY # This is the logging option
-  env: ["PROJECT_ID=$PROJECT_ID"]
