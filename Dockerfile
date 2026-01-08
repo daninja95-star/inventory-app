@@ -1,7 +1,7 @@
 # ---- Base Stage ----
 # Use a specific Python version that matches your development environment (3.11)
 # for reproducibility. The -slim variant is used for a smaller base image.
-FROM python:3.11-slim-buster as base
+FROM python:3.11-slim-bullseye as base
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
