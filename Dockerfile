@@ -1,43 +1,33 @@
-# ---- Base Stage ----
-# Use a specific Python version that matches your development environment (3.11)
-# for reproducibility. The -slim variant is used for a smaller base image.
-FROM python:3.11-slim-bullseye as base
+### Dockerfile for Python Flask application
+### Use a lightweight base image
+FROM python:3.9-slim-buster AS base
 
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
-ENV PORT 8080
+### Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV FLASK_APP=app.py
+ENV PORT=8080
 
-# Set the working directory
+### Create app directory
 WORKDIR /app
 
-# ---- Builder Stage ----
-# This stage is for installing dependencies.
-FROM base as builder
-
-# Install curl for the healthcheck and build dependencies if any Python
-# packages need compilation (e.g., gcc).
-RUN apt-get update && apt-get install -y --no-install-recommends curl gcc && rm -rf /var/lib/apt/lists/*
-
-# Copy only the requirements file to leverage Docker cache.
+### Install dependencies
 COPY requirements.txt .
+# Use a build argument for the GitHub token to install from private repos
+ARG GITHUB_TOKEN
+# Install git, configure it with the token, install dependencies, then clean up.
+# Update sources, install git, install python packages, then remove git and clean up apt cache.
+RUN echo "deb http://archive.debian.org/debian/ buster main" > /etc/apt/sources.list && \
+    echo "deb http://archive.debian.org/debian-security/ buster/updates main" >> /etc/apt/sources.list && \
+    apt-get update && apt-get install -y --no-install-recommends git && \
+    if [ -n "$GITHUB_TOKEN" ] ; then git config --global url."https://${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/" ; fi && \
+    pip install --no-cache-dir -r requirements.txt gunicorn && \
+    apt-get purge -y --auto-remove git && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies.
-RUN pip install --no-cache-dir -r requirements.txt
+### Copy application code
+COPY . .
 
-# ---- Final Stage ----
-# This is the final, lean image for production.
-FROM base
-COPY --from=builder /usr/bin/curl /usr/bin/curl
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY app.py .
+### Command to run the application using Gunicorn
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "app:app"] # 'app:app' assumes Flask app instance is named 'app' in 'app.py'
 
-# Expose the port the app runs on.
-EXPOSE 8080
-
-# Command to run the application using Gunicorn, referencing the PORT variable.
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "app:app"]
-
-# Healthcheck to ensure the application is running correctly.
-HEALTHCHECK --interval=30s --timeout=3s \
-  CMD curl --fail http://localhost:8080/products/SKU001 || exit 1
+### Healthcheck (optional but good practice)
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD [ "curl", "-f", "http://localhost:8080/products/SKU001" ]

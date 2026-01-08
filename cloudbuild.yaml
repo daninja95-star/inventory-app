@@ -1,31 +1,35 @@
-# Define substitutions for dynamic values.
-# These can be overridden when you trigger the build.
+### cloudbuild.yaml for CI/CD Pipeline
+
+### Set up substitutions for dynamic values
 substitutions:
-  _PROJECT_ID: "qwiklabs-gcp-01-adcaca246c17"
-  _REGION: "us-central1"
-  _SERVICE_NAME: "inventory-api"
-  _REPOSITORY: "cloud-run-source-deploy"
-  # Define the full image name once to avoid repetition.
-  _IMAGE_NAME: "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}"
+  _PROJECT_ID: qwiklabs-gcp-01-adcaca246c17
+  _REGION: us-central1 # Enter your region
+  _SERVICE_NAME: inventory-api
+  _REPOSITORY: cloud-run-source-deploy
+  # Define the full image name once to avoid repetition and errors
+  _IMAGE_NAME: ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}
+
 
 steps:
-  # Step 1: Build the Docker image
+  ### Step 1: Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
     id: Build-Docker-Image
     args:
       - 'build'
       - '-t'
-      - '${_IMAGE_NAME}:${SHORT_SHA}'
+      - '${_IMAGE_NAME}:$COMMIT_SHA'
+      - '--build-arg'
+      - 'GITHUB_TOKEN=$$GITHUB_TOKEN' # Pass the secret to the build
       - '.'
 
-  # Step 2: Push the Docker image to Google Artifact Registry
+  ### Step 2: Push the Docker image to Google Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     id: Push-to-Artifact-Registry
     args:
       - 'push'
-      - '${_IMAGE_NAME}:${SHORT_SHA}'
+      - '${_IMAGE_NAME}:$COMMIT_SHA'
 
-  # Step 3: Deploy the new image to Cloud Run
+  ### Step 3: Deploy the new image to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: Deploy-to-Cloud-Run
     entrypoint: gcloud
@@ -33,17 +37,17 @@ steps:
       - 'run'
       - 'deploy'
       - '${_SERVICE_NAME}'
-      - '--image'
-      - '${_IMAGE_NAME}:${SHORT_SHA}'
-      - '--region'
-      - '${_REGION}'
+      - '--image=${_IMAGE_NAME}:$COMMIT_SHA'
+      - '--region=${_REGION}'
       - '--platform=managed'
-      - '--allow-unauthenticated'
+      - '--allow-unauthenticated' # Allow unauthenticated access for this lab
 
-# Tell Cloud Build to store the built image in Artifact Registry.
-# This also enables features like vulnerability scanning.
-images:
-  - '${_IMAGE_NAME}:${SHORT_SHA}'
+### Make the secret available to the build steps
+availableSecrets:
+  secretManager:
+  - versionName: projects/$PROJECT_ID/secrets/github-token/versions/latest
+    env: 'GITHUB_TOKEN'
 
-options:
-  logging: CLOUD_LOGGING_ONLY
+options: # This section defines global build options
+  logging: CLOUD_LOGGING_ONLY # This is the logging option
+  env: ["PROJECT_ID=$PROJECT_ID"]
